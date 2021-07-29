@@ -25,6 +25,7 @@ class YOLOXHead(nn.Module):
         in_channels=[256, 512, 1024],
         act="silu",
         depthwise=False,
+        multi_match=False
     ):
         """
         Args:
@@ -43,6 +44,7 @@ class YOLOXHead(nn.Module):
         self.reg_preds = nn.ModuleList()
         self.obj_preds = nn.ModuleList()
         self.stems = nn.ModuleList()
+        self.multi_match = multi_match
         Conv = DWConv if depthwise else BaseConv
 
         for i in range(len(in_channels)):
@@ -509,7 +511,7 @@ class YOLOXHead(nn.Module):
             gt_matched_classes,
             pred_ious_this_matching,
             matched_gt_inds,
-        ) = self.dynamic_k_matching(cost, pair_wise_ious, gt_classes, num_gt, fg_mask)
+        ) = self.dynamic_k_matching(cost, pair_wise_ious, gt_classes, num_gt, fg_mask, self.multi_match)
         del pair_wise_cls_loss, cost, pair_wise_ious, pair_wise_ious_loss
 
         if mode == "cpu":
@@ -614,7 +616,7 @@ class YOLOXHead(nn.Module):
         )
         return is_in_boxes_anchor, is_in_boxes_and_center
 
-    def dynamic_k_matching(self, cost, pair_wise_ious, gt_classes, num_gt, fg_mask):
+    def dynamic_k_matching(self, cost, pair_wise_ious, gt_classes, num_gt, fg_mask, multi_match=True):
         # Dynamic K
         # ---------------------------------------------------------------
         matching_matrix = torch.zeros_like(cost)
@@ -633,11 +635,35 @@ class YOLOXHead(nn.Module):
         del topk_ious, dynamic_ks, pos_idx
 
         anchor_matching_gt = matching_matrix.sum(0)
-        if (anchor_matching_gt > 1).sum() > 0: # 对于一个anchor 被多个gt 框发金水
+        gt_matching_anchor = matching_matrix.sum(1)
+        count = 0
+        while multi_match and ((anchor_matching_gt > 1).sum() > 0 or (gt_matching_anchor == 0).sum() > 0):
+            count += 1
+            if (anchor_matching_gt > 1).sum() > 0:
+                cost_min, cost_argmin = torch.min(cost[:, anchor_matching_gt > 1], dim=0)
+                matching_matrix[:, anchor_matching_gt > 1] = 0
+                matching_matrix[cost_argmin, anchor_matching_gt > 1] = 1.0
+                anchor_matching_gt = matching_matrix.sum(0)
+                gt_matching_anchor = matching_matrix.sum(1)
+            if count > 3:
+                break
+            if (gt_matching_anchor == 0).sum() > 0:
+                cost[:, anchor_matching_gt > 0] = 999999
+                cost_min, cost_argmin = torch.min(cost, dim=1)
+                gt_miss_matching_anchor = (gt_matching_anchor == 0) * (cost_min < 1000)
+                if gt_miss_matching_anchor.sum() > 0:
+                    cost_min, cost_argmin = torch.min(cost[gt_miss_matching_anchor, :], dim=1)
+                    matching_matrix[gt_miss_matching_anchor , cost_argmin] = 1.0
+                    anchor_matching_gt = matching_matrix.sum(0)
+                    gt_matching_anchor = matching_matrix.sum(1)
+                else:
+                    break
+                
+        if not multi_match and (anchor_matching_gt > 1).sum() > 0: # 对于一个anchor 被多个gt 框发金水
             cost_min, cost_argmin = torch.min(cost[:, anchor_matching_gt > 1], dim=0)
             matching_matrix[:, anchor_matching_gt > 1] *= 0.0
             matching_matrix[cost_argmin, anchor_matching_gt > 1] = 1.0
-        
+            
         fg_mask_inboxes = matching_matrix.sum(0) > 0.0
         num_fg = fg_mask_inboxes.sum().item()
         # 正锚框 fg_mask_inboxes
@@ -649,5 +675,4 @@ class YOLOXHead(nn.Module):
         pred_ious_this_matching = (matching_matrix * pair_wise_ious).sum(0)[
             fg_mask_inboxes
         ]  #每个anchor 匹配到了的iou之和
-
         return num_fg, gt_matched_classes, pred_ious_this_matching, matched_gt_inds
