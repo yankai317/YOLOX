@@ -465,6 +465,7 @@ class YOLOXHead(nn.Module):
             total_num_anchors,
             num_gt,
         )
+        # fg_mask 在框或者2.5stride范围内的anchor, is_in_boxes_and_center两个都在的anchor
 
         bboxes_preds_per_image = bboxes_preds_per_image[fg_mask]
         cls_preds_ = cls_preds[batch_idx][fg_mask]
@@ -537,6 +538,7 @@ class YOLOXHead(nn.Module):
         expanded_strides_per_image = expanded_strides[0]
         x_shifts_per_image = x_shifts[0] * expanded_strides_per_image
         y_shifts_per_image = y_shifts[0] * expanded_strides_per_image
+        # m 个 anchor的中心点坐标
         x_centers_per_image = (
             (x_shifts_per_image + 0.5 * expanded_strides_per_image)
             .unsqueeze(0)
@@ -547,12 +549,13 @@ class YOLOXHead(nn.Module):
             .unsqueeze(0)
             .repeat(num_gt, 1)
         )
-
+        # n 个 gt 框x_min
         gt_bboxes_per_image_l = (
             (gt_bboxes_per_image[:, 0] - 0.5 * gt_bboxes_per_image[:, 2])
             .unsqueeze(1)
             .repeat(1, total_num_anchors)
         )
+        # n 个 gt 框x_max
         gt_bboxes_per_image_r = (
             (gt_bboxes_per_image[:, 0] + 0.5 * gt_bboxes_per_image[:, 2])
             .unsqueeze(1)
@@ -568,8 +571,9 @@ class YOLOXHead(nn.Module):
             .unsqueeze(1)
             .repeat(1, total_num_anchors)
         )
-
+        # 每个achor 中心点到 每个gt框 x_min矩阵 
         b_l = x_centers_per_image - gt_bboxes_per_image_l
+        # 每个achor 中心点到 每个gt框 x_max矩阵 
         b_r = gt_bboxes_per_image_r - x_centers_per_image
         b_t = y_centers_per_image - gt_bboxes_per_image_t
         b_b = gt_bboxes_per_image_b - y_centers_per_image
@@ -580,7 +584,7 @@ class YOLOXHead(nn.Module):
         # in fixed center
 
         center_radius = 2.5
-
+        # n个GT 框的 2.5个stride x_min
         gt_bboxes_per_image_l = (gt_bboxes_per_image[:, 0]).unsqueeze(1).repeat(
             1, total_num_anchors
         ) - center_radius * expanded_strides_per_image.unsqueeze(0)
@@ -620,6 +624,7 @@ class YOLOXHead(nn.Module):
         topk_ious, _ = torch.topk(ious_in_boxes_matrix, n_candidate_k, dim=1)
         dynamic_ks = torch.clamp(topk_ious.sum(1).int(), min=1)
         for gt_idx in range(num_gt):
+            # 每个gt 框 挑cost最小的k 个anchor 发金水
             _, pos_idx = torch.topk(
                 cost[gt_idx], k=dynamic_ks[gt_idx].item(), largest=False
             )
@@ -628,19 +633,20 @@ class YOLOXHead(nn.Module):
         del topk_ious, dynamic_ks, pos_idx
 
         anchor_matching_gt = matching_matrix.sum(0)
-        if (anchor_matching_gt > 1).sum() > 0:
+        if (anchor_matching_gt > 1).sum() > 0: # 对于一个anchor 被多个gt 框发金水
             cost_min, cost_argmin = torch.min(cost[:, anchor_matching_gt > 1], dim=0)
             matching_matrix[:, anchor_matching_gt > 1] *= 0.0
             matching_matrix[cost_argmin, anchor_matching_gt > 1] = 1.0
         fg_mask_inboxes = matching_matrix.sum(0) > 0.0
         num_fg = fg_mask_inboxes.sum().item()
-
-        fg_mask[fg_mask.clone()] = fg_mask_inboxes
-
-        matched_gt_inds = matching_matrix[:, fg_mask_inboxes].argmax(0)
+        # 正锚框 fg_mask_inboxes
+        fg_mask[fg_mask.clone()] = fg_mask_inboxes #匹配到了的anchor
+        
+        matched_gt_inds = matching_matrix[:, fg_mask_inboxes].argmax(0) # anchor们找到了匹配的gt框index
         gt_matched_classes = gt_classes[matched_gt_inds]
 
         pred_ious_this_matching = (matching_matrix * pair_wise_ious).sum(0)[
             fg_mask_inboxes
-        ]
+        ]  #每个anchor 匹配到了的iou之和
+
         return num_fg, gt_matched_classes, pred_ious_this_matching, matched_gt_inds

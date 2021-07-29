@@ -2,6 +2,10 @@
 # -*- coding:utf-8 -*-
 # Copyright (c) Megvii, Inc. and its affiliates.
 
+
+import random
+from yolox.data.datasets.ducha import DUCHADataset
+
 import cv2
 import numpy as np
 
@@ -156,7 +160,10 @@ class MosaicDetection(Dataset):
         cp_labels = []
         while len(cp_labels) == 0:
             cp_index = random.randint(0, self.__len__() - 1)
-            cp_labels = self._dataset.load_anno(cp_index)
+            if (isinstance(self._dataset, DUCHADataset)):
+                cp_labels = self._dataset.load_anno(cp_index, (origin_img.shape[0], origin_img.shape[1]))
+            else:
+                cp_labels = self._dataset.load_anno(cp_index)
         img, cp_labels, _, _ = self._dataset.pull_item(cp_index)
 
         if len(img.shape) == 3:

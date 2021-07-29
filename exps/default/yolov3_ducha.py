@@ -5,17 +5,14 @@
 import os
 import torch
 import torch.nn as nn
-
+import torch.distributed as dist
 from yolox.exp import Exp as MyExp
 
 
 class Exp(MyExp):
     def __init__(self):
         super(Exp, self).__init__()
-        self.depth = 1.0
-        self.width = 1.0
-        self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
-
+        
     def get_model(self, sublinear=False):
         def init_yolo(M):
             for m in M.modules():
@@ -33,16 +30,16 @@ class Exp(MyExp):
         return self.model
 
     def get_data_loader(self, batch_size, is_distributed, no_aug=False):
-        from yolox.data import COCODataset
+        from yolox.data import DUCHADataset
         from yolox.data import MosaicDetection
         from yolox.data import TrainTransform
         from yolox.data import YoloBatchSampler, DataLoader, InfiniteSampler
         import torch.distributed as dist
 
-        dataset = COCODataset(
-                data_dir='datasets/COCO/',
-                json_file=self.train_ann,
+        dataset = DUCHADataset(
+                data_dir='datasets/ducha_det',
                 img_size=self.input_size,
+                name="train",
                 preproc=TrainTransform(
                     rgb_means=(0.485, 0.456, 0.406),
                     std=(0.229, 0.224, 0.225),
@@ -87,3 +84,49 @@ class Exp(MyExp):
         train_loader = DataLoader(self.dataset, **dataloader_kwargs)
 
         return train_loader
+
+    def get_eval_loader(self, batch_size, is_distributed):
+        from yolox.data import DUCHADataset, ValTransform
+
+        valdataset = DUCHADataset(
+            data_dir=None,
+            name="val",
+            img_size=self.test_size,
+            preproc=ValTransform(
+                rgb_means=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)
+            ),
+        )
+
+        if is_distributed:
+            batch_size = batch_size // dist.get_world_size()
+            sampler = torch.utils.data.distributed.DistributedSampler(
+                valdataset, shuffle=False
+            )
+        else:
+            sampler = torch.utils.data.SequentialSampler(valdataset)
+
+        dataloader_kwargs = {
+            "num_workers": self.data_num_workers,
+            "pin_memory": True,
+            "sampler": sampler,
+        }
+        dataloader_kwargs["batch_size"] = batch_size
+        val_loader = torch.utils.data.DataLoader(valdataset, **dataloader_kwargs)
+
+        return val_loader
+
+    def get_evaluator(self, batch_size, is_distributed, testdev=False):
+        from yolox.evaluators import DUCHAEvaluator
+
+        val_loader = self.get_eval_loader(batch_size, is_distributed)
+        evaluator = DUCHAEvaluator(
+            dataloader=val_loader,
+            img_size=self.test_size,
+            confthre=self.test_conf,
+            nmsthre=self.nmsthre,
+            num_classes=self.num_classes
+        )
+        return evaluator
+
+    def eval(self, model, evaluator, is_distributed, half=False):
+        return evaluator.evaluate(model, is_distributed, half)
