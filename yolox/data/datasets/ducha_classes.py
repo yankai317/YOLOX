@@ -1,0 +1,3 @@
+DUCHA_CLASSES = [
+    "people"
+]

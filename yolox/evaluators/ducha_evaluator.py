@@ -172,5 +172,6 @@ class DUCHAEvaluator:
             sys.stdout.flush()
 
         with tempfile.TemporaryDirectory() as tempdir:
-            mAP50, mAP70 = self.dataloader.dataset.evaluate_detections(all_boxes, tempdir)
-            return mAP50, mAP70, info
+            mAP50, mAP50_95 = self.dataloader.dataset.evaluate_detections(all_boxes, tempdir)
+            logger.info("mAP50: {}, mAP50:95 {}".format(mAP50, mAP50_95))
+            return mAP50, mAP50_95, info
