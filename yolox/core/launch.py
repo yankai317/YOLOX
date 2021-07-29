@@ -13,7 +13,7 @@ import torch.multiprocessing as mp
 
 import yolox.utils.dist as comm
 from yolox.utils import configure_nccl
-
+import torch.multiprocessing as mp
 import os
 import subprocess
 import sys
@@ -59,23 +59,32 @@ def launch(
     world_size = num_machines * num_gpus_per_machine
     if world_size > 1:
         if int(os.environ.get("WORLD_SIZE", "1")) > 1:
-            dist_url = "{}:{}".format(
+            dist_url = "tcp://{}:{}".format(
                 os.environ.get("MASTER_ADDR", None),
                 os.environ.get("MASTER_PORT", "None"),
             )
             local_rank = int(os.environ.get("LOCAL_RANK", "0"))
             world_size = int(os.environ.get("WORLD_SIZE", "1"))
-            _distributed_worker(
-                local_rank,
-                main_func,
-                world_size,
-                num_gpus_per_machine,
-                num_machines,
-                machine_rank,
-                backend,
-                dist_url,
-                args,
+            mp.spawn(
+                _distributed_worker,
+                nprocs=num_gpus_per_machine,
+                args=(
+                    main_func, world_size, num_gpus_per_machine, num_machines,
+                    machine_rank, backend, dist_url, args
+                ),
+                daemon=False,
             )
+            # _distributed_worker(
+            #     local_rank,
+            #     main_func,
+            #     world_size,
+            #     num_gpus_per_machine,
+            #     num_machines,
+            #     machine_rank,
+            #     backend,
+            #     dist_url,
+            #     args,
+            # )
             exit()
         launch_by_subprocess(
             sys.argv,
@@ -186,7 +195,7 @@ def _distributed_worker(
         dist.init_process_group(
             backend=backend,
             init_method=dist_url,
-            world_size=world_size,
+            world_size=world_size*num_gpus_per_machine,
             rank=global_rank,
         )
     except Exception:

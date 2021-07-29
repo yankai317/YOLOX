@@ -22,6 +22,25 @@ class Exp(MyExp):
         self.num_classes = 1
         self.random_size = (12, 20)
 
+    def get_model(self):
+        from yolox.models import YOLOPAFPN, YOLOX, YOLOXHead
+
+        def init_yolo(M):
+            for m in M.modules():
+                if isinstance(m, nn.BatchNorm2d):
+                    m.eps = 1e-3
+                    m.momentum = 0.03
+
+        if getattr(self, "model", None) is None:
+            in_channels = [256, 512, 1024]
+            backbone = YOLOPAFPN(self.depth, self.width, in_channels=in_channels)
+            head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels, multi_match=True)
+            self.model = YOLOX(backbone, head)
+
+        self.model.apply(init_yolo)
+        self.model.head.initialize_biases(1e-2)
+        return self.model
+        
     def get_data_loader(self, batch_size, is_distributed, no_aug=False):
         from yolox.data import DUCHADataset
         from yolox.data import MosaicDetection
