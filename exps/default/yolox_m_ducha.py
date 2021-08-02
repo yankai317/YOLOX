@@ -12,8 +12,8 @@ from yolox.exp import Exp as MyExp
 class Exp(MyExp):
     def __init__(self):
         super(Exp, self).__init__()
-        self.test_size = (416, 256)
-        self.input_size = (416, 256)
+        self.test_size = (256, 416)
+        self.input_size = (256, 416)
         self.depth = 0.67
         self.width = 0.75
         self.max_epoch = 150
