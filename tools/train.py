@@ -15,7 +15,6 @@ import random
 import warnings
 
 
-
 def make_parser():
     parser = argparse.ArgumentParser("YOLOX train parser")
     parser.add_argument("-expn", "--experiment-name", type=str, default=None)

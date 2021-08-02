@@ -672,7 +672,5 @@ class YOLOXHead(nn.Module):
         matched_gt_inds = matching_matrix[:, fg_mask_inboxes].argmax(0) # anchor们找到了匹配的gt框index
         gt_matched_classes = gt_classes[matched_gt_inds]
 
-        pred_ious_this_matching = (matching_matrix * pair_wise_ious).sum(0)[
-            fg_mask_inboxes
-        ]  #每个anchor 匹配到了的iou之和
+        pred_ious_this_matching = (matching_matrix * pair_wise_ious).sum(0)[fg_mask_inboxes] #每个anchor 匹配到了的iou之和
         return num_fg, gt_matched_classes, pred_ious_this_matching, matched_gt_inds
