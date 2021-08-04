@@ -158,7 +158,7 @@ class DUCHADataset(Dataset):
         print("map_5095:", np.mean(mAPs))
         print("map_50:", mAPs[0])
         print("--------------------------------------------------------------")
-        return np.mean(mAPs), mAPs[0]
+        return mAPs[0], np.mean(mAPs)
 
     def _get_ducha_results_file_template(self, output_dir):
         filename = "eval_boxes.pickle"
