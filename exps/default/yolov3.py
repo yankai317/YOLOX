@@ -3,6 +3,7 @@
 # Copyright (c) Megvii, Inc. and its affiliates.
 
 import os
+
 import torch
 import torch.nn as nn
 
@@ -33,11 +34,16 @@ class Exp(MyExp):
         return self.model
 
     def get_data_loader(self, batch_size, is_distributed, no_aug=False):
-        from yolox.data import COCODataset
-        from yolox.data import MosaicDetection
-        from yolox.data import TrainTransform
-        from yolox.data import YoloBatchSampler, DataLoader, InfiniteSampler
         import torch.distributed as dist
+
+        from yolox.data import (
+            COCODataset,
+            DataLoader,
+            InfiniteSampler,
+            MosaicDetection,
+            TrainTransform,
+            YoloBatchSampler
+        )
 
         dataset = COCODataset(
                 data_dir='datasets/COCO/',
