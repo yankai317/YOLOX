@@ -49,7 +49,7 @@ class Exp(BaseExp):
         self.no_aug_epochs = 15
         self.min_lr_ratio = 0.05
         self.ema = True
-
+        self.freeze_backbone_epoch = 0
         self.weight_decay = 5e-4
         self.momentum = 0.9
         self.print_interval = 10

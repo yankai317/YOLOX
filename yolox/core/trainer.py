@@ -34,10 +34,28 @@ def render_img(img, target):
     img *= torch.tensor([0.229, 0.224, 0.225]).cuda()
     img += torch.tensor([0.485, 0.456, 0.406]).cuda()
     img *= 255
-
-    img = img.cpu().numpy()
     import cv2
-    cv2.imwrite('render.jpg', img[...,::-1])
+    import numpy as np
+    img_render = img.cpu().numpy().copy()
+    for t in target[0]:
+        if sum(t).item() == 0:
+            break
+        if (max(t[3],t[4]) / min(t[3], t[4])) < 5 and min(t[3],t[4]) > 10:
+            cv2.rectangle(img_render, (int(t[1]- t[3]/2), int(t[2] - t[4]/2)), (int(t[1] + t[3]/2), int(t[2] + t[4]/2)), color=[255,0,0],thickness=2)
+
+    cv2.imwrite('render.jpg', img_render[...,::-1])
+
+
+def set_freeze_by_names(model, freeze=True):
+    for name, child in model.named_children():
+        if 'backbone' not in name:
+            continue
+        for name_, child_ in child.named_children():
+            if 'backbone' not in name_:
+                continue
+            for param in child_.parameters():
+                #print(param.name)
+                param.requires_grad = not freeze
 
 class Trainer:
     def __init__(self, exp, args):
@@ -48,6 +66,7 @@ class Trainer:
 
         # training related attr
         self.max_epoch = exp.max_epoch
+        self.freeze_backbone_epoch = exp.freeze_backbone_epoch
         self.amp_training = args.fp16
         self.is_distributed = get_world_size() > 1
         self.rank = get_rank()
@@ -153,6 +172,9 @@ class Trainer:
 
         # data related init
         self.no_aug = self.start_epoch >= self.max_epoch - self.exp.no_aug_epochs
+        self.freeze_backbone = self.start_epoch >= self.max_epoch - self.exp.freeze_backbone_epoch
+        if self.freeze_backbone:
+            set_freeze_by_names(model, self.freeze_backbone)
         self.train_loader = self.exp.get_data_loader(
             batch_size=self.args.batch_size,
             is_distributed=self.is_distributed,

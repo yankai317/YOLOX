@@ -364,8 +364,10 @@ class YOLOXHead(nn.Module):
 
                 cls_target = F.one_hot(
                     gt_matched_classes.to(torch.int64), self.num_classes
-                ) * pred_ious_this_matching.unsqueeze(-1)
-                obj_target = fg_mask.unsqueeze(-1)
+                ) * 1.0
+                obj_target = fg_mask * 1.0
+                obj_target[fg_mask] *= pred_ious_this_matching
+                obj_target = obj_target.unsqueeze(-1)
                 reg_target = gt_bboxes_per_image[matched_gt_inds]
                 if self.use_l1:
                     l1_target = self.get_l1_target(
@@ -410,12 +412,14 @@ class YOLOXHead(nn.Module):
             loss_l1 = 0.0
 
         reg_weight = 5.0
-        loss = reg_weight * loss_iou + loss_obj + loss_cls + loss_l1
+        obj_weight = 1.0
+
+        loss = reg_weight * loss_iou + obj_weight * loss_obj + loss_cls + loss_l1
 
         return (
             loss,
             reg_weight * loss_iou,
-            loss_obj,
+            obj_weight * loss_obj,
             loss_cls,
             loss_l1,
             num_fg / max(num_gts, 1),

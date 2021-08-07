@@ -13,26 +13,40 @@ class Exp(MyExp):
     def __init__(self):
         super(Exp, self).__init__()
         self.test_size = (256, 416)
-        self.input_size = (256, 416)
+        self.input_size = (416, 416)
         self.depth = 0.67
         self.width = 0.75
         self.max_epoch = 100
         self.basic_lr_per_img = 0.005 / 64.0
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
         self.num_classes = 1
-        self.random_size = (13, 13)
+        self.random_size = (12, 26)
         self.test_conf = 0.3
         self.nmsthre = 0.3
         self.data_num_workers = 8
-
+        
         # --------------- transform config ----------------- #
         self.degrees = 0.0
         self.translate = 0.1
-        self.scale = (0.1, 2)
+        self.scale = (0.5, 2)
         self.mscale = (0.8, 1.6)
         self.shear = 2.0
         self.perspective = 0.0
-        self.enable_mixup = False
+        self.enable_mixup = True
+
+        # --------------  training config --------------------- #
+        self.warmup_epochs = 10
+        self.warmup_lr = 0
+        self.scheduler = "yoloxwarmcos"
+        self.no_aug_epochs = 10
+        self.min_lr_ratio = 0.05
+        self.ema = True
+        self.freeze_backbone_epoch = 0
+        self.weight_decay = 5e-4
+        self.momentum = 0.9
+        self.print_interval = 10
+        self.eval_interval = 1
+        self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
 
     def get_model(self):
         from yolox.models import YOLOPAFPN, YOLOX, YOLOXHead
