@@ -28,6 +28,16 @@ from yolox.utils import (
     synchronize
 )
 
+def render_img(img, target):
+    img = img[0]
+    img = img.permute([1,2,0])
+    img *= torch.tensor([0.229, 0.224, 0.225]).cuda()
+    img += torch.tensor([0.485, 0.456, 0.406]).cuda()
+    img *= 255
+
+    img = img.cpu().numpy()
+    import cv2
+    cv2.imwrite('render.jpg', img[...,::-1])
 
 class Trainer:
     def __init__(self, exp, args):
@@ -93,7 +103,7 @@ class Trainer:
         targets = targets.to(self.data_type)
         targets.requires_grad = False
         data_end_time = time.time()
-
+        # render_img(inps, targets)
         outputs = self.model(inps, targets)
         loss = outputs["total_loss"]
 

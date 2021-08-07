@@ -32,7 +32,7 @@ class Exp(MyExp):
         self.mscale = (0.8, 1.6)
         self.shear = 2.0
         self.perspective = 0.0
-        self.enable_mixup = True
+        self.enable_mixup = False
 
     def get_model(self):
         from yolox.models import YOLOPAFPN, YOLOX, YOLOXHead
@@ -78,13 +78,14 @@ class Exp(MyExp):
             preproc=TrainTransform(
                 rgb_means=(0.485, 0.456, 0.406),
                 std=(0.229, 0.224, 0.225),
-                max_labels=120
+                max_labels=120,
             ),
             degrees=self.degrees,
             translate=self.translate,
             scale=self.scale,
             shear=self.shear,
             perspective=self.perspective,
+            enable_mixup=self.enable_mixup,
         )
 
         self.dataset = dataset
