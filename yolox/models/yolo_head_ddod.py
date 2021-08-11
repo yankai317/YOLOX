@@ -2,7 +2,6 @@
 # -*- coding:utf-8 -*-
 # Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
 
-import math
 from loguru import logger
 
 import torch
@@ -10,6 +9,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from yolox.utils import bboxes_iou
+
+import math
 
 from .losses import IOUloss
 from .network_blocks import BaseConv, DWConv
@@ -29,7 +30,7 @@ class YOLOXHead(nn.Module):
         """
         Args:
             act (str): activation type of conv. Defalut value: "silu".
-            depthwise (bool): whether apply depthwise conv in conv branch. Defalut value: False.
+            depthwise (bool): wheather apply depthwise conv in conv branch. Defalut value: False.
         """
         super().__init__()
 
@@ -144,11 +145,12 @@ class YOLOXHead(nn.Module):
 
     def forward(self, xin, labels=None, imgs=None):
         outputs = []
+        level_inds = []
         origin_preds = []
         x_shifts = []
         y_shifts = []
         expanded_strides = []
-    
+
         for k, (cls_conv, reg_conv, stride_this_level, x) in enumerate(
             zip(self.cls_convs, self.reg_convs, self.strides, xin)
         ):
@@ -175,6 +177,9 @@ class YOLOXHead(nn.Module):
                     .fill_(stride_this_level)
                     .type_as(xin[0])
                 )
+                level_ind = torch.ones(obj_output.shape[-1]*obj_output.shape[-2]).cuda() * k
+                level_inds.append(level_ind)
+                level_num = len(self.strides)
                 if self.use_l1:
                     batch_size = reg_output.shape[0]
                     hsize, wsize = reg_output.shape[-2:]
@@ -202,6 +207,8 @@ class YOLOXHead(nn.Module):
                 labels,
                 torch.cat(outputs, 1),
                 origin_preds,
+                torch.cat(level_inds, 0),
+                level_num,
                 dtype=xin[0].dtype,
             )
         else:
@@ -261,6 +268,8 @@ class YOLOXHead(nn.Module):
         labels,
         outputs,
         origin_preds,
+        level_ind,
+        level_num,
         dtype,
     ):
         bbox_preds = outputs[:, :, :4]  # [batch, n_anchors_all, 4]
@@ -287,7 +296,7 @@ class YOLOXHead(nn.Module):
         l1_targets = []
         obj_targets = []
         fg_masks = []
-
+        level_inds = []
         num_fg = 0.0
         num_gts = 0.0
 
@@ -364,10 +373,9 @@ class YOLOXHead(nn.Module):
 
                 cls_target = F.one_hot(
                     gt_matched_classes.to(torch.int64), self.num_classes
-                ) * 1.0
+                ) * pred_ious_this_matching.unsqueeze(-1)
                 obj_target = fg_mask * 1.0
                 obj_target[fg_mask] *= pred_ious_this_matching
-                obj_target = obj_target.unsqueeze(-1)
                 reg_target = gt_bboxes_per_image[matched_gt_inds]
                 if self.use_l1:
                     l1_target = self.get_l1_target(
@@ -382,6 +390,7 @@ class YOLOXHead(nn.Module):
             reg_targets.append(reg_target)
             obj_targets.append(obj_target.to(dtype))
             fg_masks.append(fg_mask)
+            level_inds.append(level_ind)
             if self.use_l1:
                 l1_targets.append(l1_target)
 
@@ -389,39 +398,59 @@ class YOLOXHead(nn.Module):
         reg_targets = torch.cat(reg_targets, 0)
         obj_targets = torch.cat(obj_targets, 0)
         fg_masks = torch.cat(fg_masks, 0)
+        level_inds = torch.cat(level_inds, 0)
         if self.use_l1:
             l1_targets = torch.cat(l1_targets, 0)
+        fg_masks_levels = []
+        num_fg_levels = []
+        targets_mask_levels = []
+        for i in range(level_num):
+            fg_masks_level = fg_masks * (level_inds == i)
+            fg_masks_levels.append(fg_masks_level)
+            num_fg_level = fg_masks_level.sum()
+            num_fg_levels.append(num_fg_level)
+            targets_mask_levels.append(fg_masks_level[fg_masks])
+        loss_ious = 0
+        loss_clss = 0
+        loss_l1s = 0
 
-        num_fg = max(num_fg, 1)
-        loss_iou = (
-            self.iou_loss(bbox_preds.view(-1, 4)[fg_masks], reg_targets)
-        ).sum() / num_fg
+        for i in range(level_num):
+            fg_masks_level = fg_masks_levels[i]
+            weight_level = 2 - (num_fg_levels[i] - min(num_fg_levels) + 1e-10)/(max(num_fg_levels) - min(num_fg_levels) + 1e-10)
+
+            num_fg_level = max(fg_masks_level.sum(), 1)
+            loss_iou = (
+                self.iou_loss(bbox_preds.view(-1, 4)[fg_masks_level], reg_targets[targets_mask_levels[i]])
+            ).sum() / num_fg_level
+
+            loss_cls = (
+                self.bcewithlog_loss(
+                    cls_preds.view(-1, self.num_classes)[fg_masks_level], cls_targets[targets_mask_levels[i]]
+                )
+            ).sum() / num_fg_level
+            if self.use_l1:
+                loss_l1 = (
+                    self.l1_loss(origin_preds.view(-1, 4)[fg_masks_level], l1_targets[targets_mask_levels[i]])
+                ).sum() / num_fg_level
+            else:
+                loss_l1 = 0.0
+
+            reg_weight = 5.0
+            loss_ious += weight_level * reg_weight * loss_iou
+            loss_clss += weight_level * loss_cls
+            loss_l1s += weight_level * loss_l1
+        
         loss_obj = (
             self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)
-        ).sum() / num_fg
-        loss_cls = (
-            self.bcewithlog_loss(
-                cls_preds.view(-1, self.num_classes)[fg_masks], cls_targets
-            )
-        ).sum() / num_fg
-        if self.use_l1:
-            loss_l1 = (
-                self.l1_loss(origin_preds.view(-1, 4)[fg_masks], l1_targets)
-            ).sum() / num_fg
-        else:
-            loss_l1 = 0.0
-
-        reg_weight = 5.0
-        obj_weight = 1.0
-
-        loss = reg_weight * loss_iou + obj_weight * loss_obj + loss_cls + loss_l1
+        ).sum() / max(num_fg, 1)
+        loss = (2 * loss_obj + loss_ious + loss_clss + loss_l1s) / 2
 
         return (
             loss,
-            reg_weight * loss_iou,
-            obj_weight * loss_obj,
-            loss_cls,
-            loss_l1,
+            loss_ious,
+            2 * loss_obj,
+            loss_clss,
+            loss_l1s,
             num_fg / max(num_gts, 1),
         )
 

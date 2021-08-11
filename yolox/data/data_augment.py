@@ -205,11 +205,12 @@ def preproc(image, input_size, mean, std, swap=(2, 0, 1)):
 
 
 class TrainTransform:
-    def __init__(self, p=0.5, rgb_means=None, std=None, max_labels=50):
+    def __init__(self, p=0.5, rgb_means=None, std=None, max_labels=50, filter_size=8):
         self.means = rgb_means
         self.std = std
         self.p = p
         self.max_labels = max_labels
+        self.filter_size = filter_size
 
     def __call__(self, image, targets, input_dim):
         boxes = targets[:, :4].copy()
@@ -236,7 +237,7 @@ class TrainTransform:
         boxes = xyxy2cxcywh(boxes)
         boxes *= r_
 
-        mask_b = np.minimum(boxes[:, 2], boxes[:, 3]) > 8
+        mask_b = np.minimum(boxes[:, 2], boxes[:, 3]) > self.filter_size
         boxes_t = boxes[mask_b]
         labels_t = labels[mask_b]
 

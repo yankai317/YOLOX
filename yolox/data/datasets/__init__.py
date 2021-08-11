@@ -9,3 +9,5 @@ from .mosaicdetection import MosaicDetection
 from .voc import VOCDetection
 from .ducha import DUCHADataset
 from .ducha_classes import DUCHA_CLASSES
+from .person_head import PersonHeadDataset
+from .person_head_classes import PERSON_HEAD_CLASSES

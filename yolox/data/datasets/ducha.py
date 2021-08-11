@@ -147,18 +147,24 @@ class DUCHADataset(Dataset):
         # self._write_ducha_results_file(all_boxes)
         IouTh = np.linspace(0.5, 0.95, int(np.round((0.95 - 0.5) / 0.05)) + 1, endpoint=True)
         mAPs = []
+        all_recs = []
+        all_precs = []
         for boxes in all_boxes:
             if isinstance(boxes, torch.Tensor):
                 boxes = boxes.cpu().numpy()
         for iou in IouTh:
-            mAP = self._do_python_eval(all_gt_boxes, all_boxes, output_dir, iou)
+            mAP, all_rec, all_prec = self._do_python_eval(all_gt_boxes, all_boxes, output_dir, iou)
             mAPs.append(mAP)
+            all_recs.append(all_rec)
+            all_precs.append(all_prec)
 
         print("--------------------------------------------------------------")
         print("map_5095:", np.mean(mAPs))
         print("map_50:", mAPs[0])
+        print("rec_50:", all_recs[0])
+        print("prec_50:", all_precs[0])
         print("--------------------------------------------------------------")
-        return mAPs[0], np.mean(mAPs)
+        return mAPs[0], np.mean(mAPs), all_recs[0], all_precs[0]
 
     def _get_ducha_results_file_template(self, output_dir):
         filename = "eval_boxes.pickle"
@@ -188,7 +194,7 @@ class DUCHADataset(Dataset):
 
     def _do_python_eval(self, all_gt_boxes, all_boxes, output_dir="output", iou=0.5):
     
-        recs, precs, aps = det_eval(
+        recs, precs, aps, all_rec, all_prec = det_eval(
            all_gt_boxes, all_boxes, DUCHA_CLASSES, iou
         )
         print("Eval IoU : {:.2f}".format(iou))
@@ -219,4 +225,4 @@ class DUCHADataset(Dataset):
             print("-- Thanks, The Management")
             print("--------------------------------------------------------------")
 
-        return np.mean(aps)
+        return np.mean(aps), all_rec, all_prec

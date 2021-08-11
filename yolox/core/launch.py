@@ -110,7 +110,7 @@ def launch_by_subprocess(
             master_ip = subprocess.check_output(["hostname", "--fqdn"]).decode("utf-8")
             master_ip = str(master_ip).strip()
             dist_url = "tcp://{}".format(master_ip)
-            ip_add_file = "./" + args[1].experiment_name + "_ip_add.txt"
+            ip_add_file = "./YOLOX_outputs/" + args[1].experiment_name + "_ip_add.txt"
             if machine_rank == 0:
                 port = _find_free_port()
                 with open(ip_add_file, "w") as ip_add:

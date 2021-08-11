@@ -14,8 +14,8 @@ class Exp(MyExp):
         super(Exp, self).__init__()
         self.test_size = (256, 416)
         self.input_size = (416, 416)
-        self.depth = 0.67
-        self.width = 0.75
+        self.depth = 0.33
+        self.width = 0.50
         self.max_epoch = 150
         self.basic_lr_per_img = 0.005 / 64.0
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
@@ -26,13 +26,13 @@ class Exp(MyExp):
         self.data_num_workers = 8
         
         # --------------- transform config ----------------- #
-        self.degrees = 0.0
+        self.degrees = 5.0
         self.translate = 0.1
         self.scale = (0.1, 2)
         self.mscale = (0.8, 1.6)
         self.shear = 2.0
         self.perspective = 0.0
-        self.enable_mixup = True
+        self.enable_mixup = False
 
         # --------------  training config --------------------- #
         self.warmup_epochs = 5
@@ -41,7 +41,7 @@ class Exp(MyExp):
         self.no_aug_epochs = 15
         self.min_lr_ratio = 0.05
         self.ema = True
-        self.freeze_backbone_epoch = 0
+        self.freeze_backbone_epoch = 100
         self.weight_decay = 5e-4
         self.momentum = 0.9
         self.print_interval = 10
@@ -93,7 +93,8 @@ class Exp(MyExp):
                 rgb_means=(0.485, 0.456, 0.406),
                 std=(0.229, 0.224, 0.225),
                 max_labels=120,
-                filter_size=10
+                filter_size=10,
+                filter_ratio=5
             ),
             degrees=self.degrees,
             translate=self.translate,

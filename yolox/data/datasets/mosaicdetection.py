@@ -4,7 +4,7 @@
 
 import random
 from yolox.data.datasets.ducha import DUCHADataset
-
+from yolox.data.datasets.person_head import PersonHeadDataset
 import cv2
 import numpy as np
 
@@ -157,7 +157,7 @@ class MosaicDetection(Dataset):
         cp_labels = []
         while len(cp_labels) == 0:
             cp_index = random.randint(0, self.__len__() - 1)
-            if (isinstance(self._dataset, DUCHADataset)):
+            if (isinstance(self._dataset, DUCHADataset) or isinstance(self._dataset, PersonHeadDataset)):
                 cp_labels = self._dataset.load_anno(cp_index, (origin_img.shape[0], origin_img.shape[1]))
             else:
                 cp_labels = self._dataset.load_anno(cp_index)

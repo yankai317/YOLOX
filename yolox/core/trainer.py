@@ -17,6 +17,7 @@ from yolox.utils import (
     MeterBuffer,
     ModelEMA,
     all_reduce_norm,
+    dist,
     get_model_info,
     get_rank,
     get_world_size,
@@ -63,7 +64,7 @@ class Trainer:
         # before_train methods.
         self.exp = exp
         self.args = args
-
+        self.experiment_name = args.experiment_name
         # training related attr
         self.max_epoch = exp.max_epoch
         self.freeze_backbone_epoch = exp.freeze_backbone_epoch
@@ -84,7 +85,11 @@ class Trainer:
         self.file_name = os.path.join(exp.output_dir, args.experiment_name)
 
         if self.rank == 0:
+            if os.path.exists(self.file_name):
+               self.file_name = self.file_name+ '_' + str(time.time())
             os.makedirs(self.file_name, exist_ok=True)
+
+
 
         setup_logger(
             self.file_name,
@@ -138,6 +143,14 @@ class Trainer:
             self.ema_model.update(self.model)
 
         lr = self.lr_scheduler.update_lr(self.progress_in_iter + 1)
+        if self.rank == 0:
+            num_iter = self.epoch*self.max_iter + self.iter + 1
+            self.tblogger.add_scalar("train/total_loss", loss, num_iter)
+            self.tblogger.add_scalar("train/iou_loss", outputs['iou_loss'], num_iter)
+            self.tblogger.add_scalar("train/conf_loss", outputs['conf_loss'], num_iter)
+            self.tblogger.add_scalar("train/cls_loss", outputs['cls_loss'], num_iter)
+            self.tblogger.add_scalar("train/l1_loss", outputs['l1_loss'], num_iter)
+            self.tblogger.add_scalar("train/lr", lr, num_iter)
         for param_group in self.optimizer.param_groups:
             param_group["lr"] = lr
 
@@ -244,7 +257,9 @@ class Trainer:
             self.evaluate_and_save_model()
 
     def before_iter(self):
-        pass
+        if self.is_distributed:
+            torch.distributed.barrier()
+        assert os.path.exists(self.file_name)
 
     def after_iter(self):
         """
@@ -337,9 +352,17 @@ class Trainer:
         )
         self.model.train()
         if self.rank == 0:
-            self.tblogger.add_scalar("val/COCOAP50", ap50, self.epoch + 1)
-            self.tblogger.add_scalar("val/COCOAP50_95", ap50_95, self.epoch + 1)
-            logger.info("\n" + summary)
+            if isinstance(summary, str):
+                self.tblogger.add_scalar("val/COCOAP50", ap50, self.epoch + 1)
+                self.tblogger.add_scalar("val/COCOAP50_95", ap50_95, self.epoch + 1)
+                logger.info("\n" + summary)
+            else:
+                self.tblogger.add_scalar("val/COCOAP50", ap50, self.epoch + 1)
+                self.tblogger.add_scalar("val/COCOAP50_95", ap50_95, self.epoch + 1)
+                self.tblogger.add_scalar("val/REC50", summary['rec50'], self.epoch + 1)
+                self.tblogger.add_scalar("val/PREC50", summary['prec50'], self.epoch + 1)
+                logger.info("\n" + summary['time_info'])
+
         synchronize()
 
         self.save_ckpt("last_epoch", ap50_95 > self.best_ap)

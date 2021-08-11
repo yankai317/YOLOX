@@ -72,6 +72,7 @@ def cal_acc_recall(all_objs_gt, all_objs_dt, class_name, iou_threshold):
     tp_class = [[] for _ in range(len(class_name))]
     fp_class = [[] for _ in range(len(class_name))]
     gt_num = [0 for _ in range(len(class_name))]
+    dt_num = [0 for _ in range(len(class_name))]
     det_conf = [[] for _ in range(len(class_name))]
     assert len(all_objs_gt) == len(all_objs_dt)
     for i, objs_gt in enumerate(all_objs_gt):
@@ -81,6 +82,8 @@ def cal_acc_recall(all_objs_gt, all_objs_dt, class_name, iou_threshold):
             continue
         elif len(objs_gt) == 0:
             for class_i in range(len(class_name)):
+                dt_class_list = list(np.where(objs_dt[..., 4] == class_i))[0]
+                dt_num[class_i] += len(dt_class_list)
                 fp_class[class_i].extend(list(objs_dt[np.where(objs_dt[..., 4] == class_i)][..., 5]))
         elif len(objs_dt) == 0:
             for class_i in range(len(class_name)):
@@ -92,6 +95,7 @@ def cal_acc_recall(all_objs_gt, all_objs_dt, class_name, iou_threshold):
                 gt_valid_index = np.where(objs_gt[..., 4] == class_i)[0]
                 gt_num[class_i] += len(gt_valid_index)
                 dt_valid_index = np.where((objs_dt[..., 4] == class_i))[0]
+                dt_num[class_i] += len(dt_valid_index)
                 gt_invalid_index = np.where(objs_gt[..., 4] != class_i)[0]
                 dt_invalid_index = np.where((objs_dt[..., 4] != class_i))[0]
 
@@ -129,7 +133,8 @@ def cal_acc_recall(all_objs_gt, all_objs_dt, class_name, iou_threshold):
     prec_all = []
     fppi_all = []
     conf_all = []
-
+    all_tp = 0
+    all_fp = 0
 
     for class_i in range(len(class_name)):
         det_conf = []
@@ -164,7 +169,8 @@ def cal_acc_recall(all_objs_gt, all_objs_dt, class_name, iou_threshold):
 
             tp[count] += det_box[1]
             fp[count] += 1 - det_box[1]
-
+        all_tp += tp[-1]
+        all_fp += fp[-1]
         rec = tp[:]
         for idx, val in enumerate(tp):
             rec[idx] = float(tp[idx] + 1e-10) / (gt_num[class_i] + 1e-10)
@@ -180,8 +186,10 @@ def cal_acc_recall(all_objs_gt, all_objs_dt, class_name, iou_threshold):
         prec_all.append(prec)
         fppi_all.append(fppi)
         conf_all.append(det_conf_score)
+    all_rec = float(all_tp + 1e-10) / (sum(gt_num) + 1e-10)
+    all_prec = float(all_tp + 1e-10) / (sum(dt_num) + 1e-10)
 
-    return rec_all, prec_all, gt_num
+    return rec_all, prec_all, all_rec, all_prec
 
 
 def det_eval(gt_file, bt_file, class_name, iou_threshold):
@@ -194,11 +202,11 @@ def det_eval(gt_file, bt_file, class_name, iou_threshold):
     :return:
     """
 
-    rec, prec, gt_num = cal_acc_recall(gt_file, bt_file, class_name, iou_threshold)
+    rec, prec, all_rec, all_prec = cal_acc_recall(gt_file, bt_file, class_name, iou_threshold)
 
     aps = []
     for i, name in enumerate(class_name):
         ap = voc_ap(rec[i], prec[i])
         aps.append(ap)
 
-    return rec, prec, aps
+    return rec, prec, aps, all_rec, all_prec

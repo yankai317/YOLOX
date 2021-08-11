@@ -12,23 +12,23 @@ from yolox.exp import Exp as MyExp
 class Exp(MyExp):
     def __init__(self):
         super(Exp, self).__init__()
-        self.test_size = (256, 416)
-        self.input_size = (416, 416)
+        self.test_size = (576, 960)
+        self.input_size = (960, 960)
         self.depth = 0.67
         self.width = 0.75
-        self.max_epoch = 150
-        self.basic_lr_per_img = 0.005 / 64.0
+        self.max_epoch = 100
+        self.basic_lr_per_img = 0.0001 / 64.0
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
-        self.num_classes = 1
-        self.random_size = (12, 26)
+        self.num_classes = 2
+        self.random_size = (25, 32)
         self.test_conf = 0.3
         self.nmsthre = 0.3
         self.data_num_workers = 8
         
         # --------------- transform config ----------------- #
-        self.degrees = 0.0
+        self.degrees = 10.0
         self.translate = 0.1
-        self.scale = (0.1, 2)
+        self.scale = (0.5, 1.5)
         self.mscale = (0.8, 1.6)
         self.shear = 2.0
         self.perspective = 0.0
@@ -38,7 +38,7 @@ class Exp(MyExp):
         self.warmup_epochs = 5
         self.warmup_lr = 0
         self.scheduler = "yoloxwarmcos"
-        self.no_aug_epochs = 15
+        self.no_aug_epochs = 5
         self.min_lr_ratio = 0.05
         self.ema = True
         self.freeze_backbone_epoch = 0
@@ -60,7 +60,7 @@ class Exp(MyExp):
         if getattr(self, "model", None) is None:
             in_channels = [256, 512, 1024]
             backbone = YOLOPAFPN(self.depth, self.width, in_channels=in_channels)
-            head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels, multi_match=True)
+            head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels, multi_match=False)
             self.model = YOLOX(backbone, head)
 
         self.model.apply(init_yolo)
@@ -68,14 +68,14 @@ class Exp(MyExp):
         return self.model
         
     def get_data_loader(self, batch_size, is_distributed, no_aug=False):
-        from yolox.data import DUCHADataset
+        from yolox.data import PersonHeadDataset
         from yolox.data import MosaicDetection
         from yolox.data import TrainTransform
         from yolox.data import YoloBatchSampler, DataLoader, InfiniteSampler
         import torch.distributed as dist
 
-        dataset = DUCHADataset(
-                data_dir='datasets/ducha_det',
+        dataset = PersonHeadDataset(
+                data_dir='datasets/person_head/yolov5_list_20210703_train_random_add.txt',
                 img_size=self.input_size,
                 name="train",
                 preproc=TrainTransform(
@@ -126,10 +126,10 @@ class Exp(MyExp):
         return train_loader
 
     def get_eval_loader(self, batch_size, is_distributed):
-        from yolox.data import DUCHADataset, ValTransform
+        from yolox.data import PersonHeadDataset, ValTransform
 
-        valdataset = DUCHADataset(
-            data_dir=None,
+        valdataset = PersonHeadDataset(
+            data_dir="datasets/person_head/construction_test_0719.txt",
             name="val",
             img_size=self.test_size,
             preproc=ValTransform(
