@@ -16,7 +16,7 @@ from .losses import IOUloss
 from .network_blocks import BaseConv, DWConv
 
 
-class YOLOXHead(nn.Module):
+class YOLOXHeadDdod(nn.Module):
     def __init__(
         self,
         num_classes,
@@ -376,6 +376,7 @@ class YOLOXHead(nn.Module):
                 ) * pred_ious_this_matching.unsqueeze(-1)
                 obj_target = fg_mask * 1.0
                 obj_target[fg_mask] *= pred_ious_this_matching
+                obj_target = obj_target.unsqueeze(-1)
                 reg_target = gt_bboxes_per_image[matched_gt_inds]
                 if self.use_l1:
                     l1_target = self.get_l1_target(
@@ -413,44 +414,49 @@ class YOLOXHead(nn.Module):
         loss_ious = 0
         loss_clss = 0
         loss_l1s = 0
-
+        loss_objs = 0
+        weight_levels = [0.5, 0.3, 0.2]
         for i in range(level_num):
             fg_masks_level = fg_masks_levels[i]
-            weight_level = 2 - (num_fg_levels[i] - min(num_fg_levels) + 1e-10)/(max(num_fg_levels) - min(num_fg_levels) + 1e-10)
-
+            # weight_level = 2 - (num_fg_levels[i] - min(num_fg_levels) + 1e-10)/(max(num_fg_levels) - min(num_fg_levels) + 1e-10)
+            # weight_level = weight_level.item()
+            weight_level = weight_levels[i]
             num_fg_level = max(fg_masks_level.sum(), 1)
             loss_iou = (
                 self.iou_loss(bbox_preds.view(-1, 4)[fg_masks_level], reg_targets[targets_mask_levels[i]])
-            ).sum() / num_fg_level
+            ).sum() 
 
             loss_cls = (
                 self.bcewithlog_loss(
                     cls_preds.view(-1, self.num_classes)[fg_masks_level], cls_targets[targets_mask_levels[i]]
                 )
-            ).sum() / num_fg_level
+            ).sum() 
+
+            loss_obj = (
+                self.bcewithlog_loss(obj_preds.view(-1, 1)[level_inds==i], obj_targets[level_inds==i])
+            ).sum() 
+
             if self.use_l1:
                 loss_l1 = (
                     self.l1_loss(origin_preds.view(-1, 4)[fg_masks_level], l1_targets[targets_mask_levels[i]])
-                ).sum() / num_fg_level
+                ).sum() 
             else:
                 loss_l1 = 0.0
 
             reg_weight = 5.0
-            loss_ious += weight_level * reg_weight * loss_iou
-            loss_clss += weight_level * loss_cls
-            loss_l1s += weight_level * loss_l1
-        
-        loss_obj = (
-            self.bcewithlog_loss(obj_preds.view(-1, 1), obj_targets)
-        ).sum() / max(num_fg, 1)
-        loss = (2 * loss_obj + loss_ious + loss_clss + loss_l1s) / 2
+            loss_ious += reg_weight * loss_iou
+            loss_clss += loss_cls
+            loss_l1s += loss_l1
+            loss_objs += weight_level * loss_obj
+
+        loss = (loss_objs + loss_ious + loss_clss + loss_l1s)
 
         return (
-            loss,
-            loss_ious,
-            2 * loss_obj,
-            loss_clss,
-            loss_l1s,
+            loss / max(num_fg, 1),
+            loss_ious / max(num_fg, 1),
+            loss_objs / max(num_fg, 1),
+            loss_clss /max(num_fg, 1),
+            loss_l1s / max(num_fg, 1), 
             num_fg / max(num_gts, 1),
         )
 

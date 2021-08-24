@@ -16,11 +16,11 @@ class Exp(MyExp):
         self.input_size = (416, 416)
         self.depth = 0.33
         self.width = 0.50
-        self.max_epoch = 150
+        self.max_epoch = 100
         self.basic_lr_per_img = 0.005 / 64.0
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
         self.num_classes = 1
-        self.random_size = (12, 26)
+        self.random_size = (13, 13)
         self.test_conf = 0.3
         self.nmsthre = 0.3
         self.data_num_workers = 8
@@ -28,7 +28,7 @@ class Exp(MyExp):
         # --------------- transform config ----------------- #
         self.degrees = 5.0
         self.translate = 0.1
-        self.scale = (0.1, 2)
+        self.scale = (0.3, 1.5)
         self.mscale = (0.8, 1.6)
         self.shear = 2.0
         self.perspective = 0.0
@@ -41,7 +41,7 @@ class Exp(MyExp):
         self.no_aug_epochs = 15
         self.min_lr_ratio = 0.05
         self.ema = True
-        self.freeze_backbone_epoch = 100
+        self.freeze_backbone_epoch = 0
         self.weight_decay = 5e-4
         self.momentum = 0.9
         self.print_interval = 10
@@ -60,7 +60,7 @@ class Exp(MyExp):
         if getattr(self, "model", None) is None:
             in_channels = [256, 512, 1024]
             backbone = YOLOPAFPN(self.depth, self.width, in_channels=in_channels)
-            head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels, multi_match=True)
+            head = YOLOXHead(self.num_classes, self.width, in_channels=in_channels, multi_match=False)
             self.model = YOLOX(backbone, head)
 
         self.model.apply(init_yolo)
@@ -93,8 +93,7 @@ class Exp(MyExp):
                 rgb_means=(0.485, 0.456, 0.406),
                 std=(0.229, 0.224, 0.225),
                 max_labels=120,
-                filter_size=10,
-                filter_ratio=5
+                filter_size=10
             ),
             degrees=self.degrees,
             translate=self.translate,

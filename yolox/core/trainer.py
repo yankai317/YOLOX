@@ -232,6 +232,9 @@ class Trainer:
                 self.best_ap * 100
             )
         )
+        if self.is_distributed:
+            torch.distributed.barrier()
+        assert os.path.exists(self.file_name)
 
     def before_epoch(self):
         logger.info("---> start train epoch{}".format(self.epoch + 1))
@@ -365,8 +368,8 @@ class Trainer:
 
         synchronize()
 
-        self.save_ckpt("last_epoch", ap50_95 > self.best_ap)
-        self.best_ap = max(self.best_ap, ap50_95)
+        self.save_ckpt("last_epoch", ap50 > self.best_ap)
+        self.best_ap = max(self.best_ap, ap50)
 
     def save_ckpt(self, ckpt_name, update_best_ckpt=False):
         if self.rank == 0:

@@ -32,7 +32,7 @@ class Exp(MyExp):
         self.mscale = (0.8, 1.6)
         self.shear = 2.0
         self.perspective = 0.0
-        self.enable_mixup = True
+        self.enable_mixup = False
 
         # --------------  training config --------------------- #
         self.warmup_epochs = 5

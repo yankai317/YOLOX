@@ -33,7 +33,8 @@ def get_exp_by_name(exp_name):
         "yolox-m-ducha": "yolox_m_ducha.py",
         "yolox-s-ducha": "yolox_s_ducha.py",
         "yolox-m-multi-match": "yolox_m_multi_match.py",
-        "yolox-m-person-head": "yolox_m_person_head.py"
+        "yolox-m-person-head": "yolox_m_person_head.py",
+        "yolox-m-ddod-ducha": "yolox_m_ddod_ducha.py"
     }
     filename = filedict[exp_name]
     exp_path = os.path.join(yolox_path, "exps", "default", filename)
