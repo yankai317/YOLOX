@@ -6,10 +6,9 @@ python tools/train.py \
         -n yolox-m-ducha \
         -c /workspace/mnt/storage/yankai/test_cephfs/YOLOX/pretrain/yolox_m.pth.tar \
         -d 8 \
-        -b 512 \
+        -b 256 \
         --fp16 \
         -o \
-        --num_machines $WORLD_SIZE \
-        --machine_rank $RANK
-pkill -f -9 python
-bash /workspace/mnt/storage/yankai/test_cephfs/YOLOX/run_yolox_m_ducha.sh
+        --num_machine $WORLD_SIZE \
+        --machine_rank $RANK \
+        --dist-url "tcp://$MASTER_ADDR:$MASTER_PORT"
