@@ -29,21 +29,21 @@ class Exp(BaseExp):
         # Actual multiscale ranges: [640-5*32, 640+5*32].
         # To disable multiscale training, set the
         # self.multiscale_range to 0.
-        self.multiscale_range = 0
+        self.multiscale_range = 5
         # You can uncomment this line to specify a multiscale range
-        # self.random_size = (14, 26)
+        self.random_size = (10, 13)
         self.data_dir = None
 
         # --------------- transform config ----------------- #
         self.mosaic_prob = 1.0
-        self.mixup_prob = 0.3
+        self.mixup_prob = 0.5
         self.degrees = 0.0
         self.translate = 0.1
         self.mosaic_scale = (0.5, 1.5)
         self.mixup_scale = (0.5, 1.5)
         self.shear = 2.0
         self.perspective = 0.0
-        self.enable_mixup = True
+        self.enable_mixup = False
 
         # --------------  training config --------------------- #
         self.warmup_epochs = 5
