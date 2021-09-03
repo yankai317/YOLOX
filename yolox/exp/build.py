@@ -29,6 +29,8 @@ def get_exp_by_name(exp_name):
         "yolox-tiny": "yolox_tiny.py",
         "yolox-nano": "nano.py",
         "yolov3": "yolov3.py",
+        "yolox-rexnet15": "yolox_rexnet15.py",
+        "yolox-rexnet10": "yolox_rexnet10.py",
         "yolov3_ducha": "yolov3_ducha.py",
         "yolox-m-ducha": "yolox_m_ducha.py",
         "yolox-s-ducha": "yolox_s_ducha.py",

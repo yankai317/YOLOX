@@ -8,5 +8,5 @@ from .yolo_fpn import YOLOFPN
 from .yolo_head import YOLOXHead
 from .yolo_head_ddod import YOLOXHeadDdod
 from .yolo_pafpn import YOLOPAFPN
-# from .yolo_pafpn_cot import YOLOPAFPNCOT
+from .yolo_pafpn_rex import YOLOPAFPNREX
 from .yolox import YOLOX
