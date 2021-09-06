@@ -3,10 +3,10 @@ python setup.py develop  # or  python3 setup.py develop
 sleep 30
 pkill -f -9 python
 python tools/train.py \
-        -expn coco/yolox-rexnet10 \
+        -expn coco/yolox-rex10 \
         -n yolox-rexnet10 \
         -d 8 \
-        -b 128 \
+        -b 256 \
         --fp16 \
         -o \
         --cache \

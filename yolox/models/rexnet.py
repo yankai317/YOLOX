@@ -124,8 +124,8 @@ class ReXNetV1(nn.Module):
                                              stride=s,
                                              use_se=se, se_ratio=se_ratio))
 
-        pen_channels = int(1280 * width_mult)
-        ConvBNSiLU(features, c, pen_channels)
+        # pen_channels = int(1280 * width_mult)
+        # ConvBNSiLU(features, c, pen_channels)
 
         # features.append(nn.AdaptiveAvgPool2d(1))
         self.features = nn.Sequential(*features)
