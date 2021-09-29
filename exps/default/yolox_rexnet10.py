@@ -50,12 +50,12 @@ class Exp(BaseExp):
 
         # --------------  training config --------------------- #
         self.warmup_epochs = 5
-        self.max_epoch = 300
+        self.max_epoch = 400
         self.warmup_lr = 0
         self.basic_lr_per_img = 0.01 / 64.0
         self.scheduler = "yoloxwarmcos"
-        self.no_aug_epochs = 15
-        self.min_lr_ratio = 0.05
+        self.no_aug_epochs = 20
+        self.min_lr_ratio = 0.01
         self.ema = True
         self.freeze_backbone_epoch = 0
         self.weight_decay = 5e-4
@@ -80,7 +80,7 @@ class Exp(BaseExp):
 
         if getattr(self, "model", None) is None:
             in_channels = [61, 128, 185]
-            fpn_channels = [128, 256, 512]
+            fpn_channels = [192, 384, 768]
             backbone = YOLOPAFPNREX(self.depth, 1.0, in_channels=in_channels, fpn_channels=fpn_channels)
             head = YOLOXHead(self.num_classes, self.width, in_channels=fpn_channels)
             self.model = YOLOX(backbone, head)

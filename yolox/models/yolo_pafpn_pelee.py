@@ -2,14 +2,15 @@
 # -*- encoding: utf-8 -*-
 # Copyright (c) 2014-2021 Megvii Inc. All rights reserved.
 
+from yolox.models.peleenet import PeleeNet
 import torch
 import torch.nn as nn
 
-from .rexnet import ReXNetV1
+from .peleenet import PeleeNet
 from .network_blocks import BaseConv, CSPLayer, DWConv
 import math
 
-class YOLOPAFPNREX(nn.Module):
+class YOLOPAFPNPELEE(nn.Module):
     """
     YOLOv3 model. Darknet 53 is the default backbone of this model.
     """
@@ -18,15 +19,15 @@ class YOLOPAFPNREX(nn.Module):
         self,
         depth=1.0,
         width=1.0,
-        in_features=("dark3", "dark4", "dark5"),
-        in_channels=[92, 193, 277],
+        in_features=("dark2", "dark3", "dark5"),
+        in_channels=[128, 256, 704],
         fpn_channels = [128, 384, 768],
         depthwise=False,
         use_se=True,
         act="silu",
     ):
         super().__init__()
-        self.backbone = ReXNetV1(depth, width, use_se=use_se)
+        self.backbone = PeleeNet()
         self.in_features = in_features
         self.in_channels = in_channels
         Conv = DWConv if depthwise else BaseConv

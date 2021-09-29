@@ -70,7 +70,7 @@ class Exp(BaseExp):
         self.nmsthre = 0.65
 
     def get_model(self):
-        from yolox.models import YOLOX, YOLOPAFPNREX, YOLOXHead
+        from yolox.models import YOLOX, YOLOPAFPNPELEE, YOLOXHead
 
         def init_yolo(M):
             for m in M.modules():
@@ -79,9 +79,9 @@ class Exp(BaseExp):
                     m.momentum = 0.03
 
         if getattr(self, "model", None) is None:
-            in_channels = [92, 193, 277]
-            fpn_channels = [192, 384, 768]
-            backbone = YOLOPAFPNREX(self.depth, 1.5, in_channels=in_channels, fpn_channels=fpn_channels, use_se=False)
+            in_channels=[128, 256, 704]
+            fpn_channels = [128, 384, 768]
+            backbone = YOLOPAFPNPELEE(self.depth, 1.0, in_channels=in_channels, fpn_channels=fpn_channels)
             head = YOLOXHead(self.num_classes, self.width, in_channels=fpn_channels)
             self.model = YOLOX(backbone, head)
 

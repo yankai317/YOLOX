@@ -79,9 +79,9 @@ class Exp(BaseExp):
                     m.momentum = 0.03
 
         if getattr(self, "model", None) is None:
-            in_channels = [92, 193, 277]
+            in_channels = [79, 167, 240]
             fpn_channels = [192, 384, 768]
-            backbone = YOLOPAFPNREX(self.depth, 1.5, in_channels=in_channels, fpn_channels=fpn_channels, use_se=False)
+            backbone = YOLOPAFPNREX(self.depth, 1.3, in_channels=in_channels, fpn_channels=fpn_channels)
             head = YOLOXHead(self.num_classes, self.width, in_channels=fpn_channels)
             self.model = YOLOX(backbone, head)
 
