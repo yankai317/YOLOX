@@ -5,11 +5,11 @@
 import torch
 import torch.nn as nn
 
-from .rexnet import ReXNetV1
+from .rexnet_lite import ReXNetV1_lite
 from .network_blocks import BaseConv, CSPLayer, DWConv
 import math
 
-class YOLOPAFPNREX(nn.Module):
+class YOLOPAFPNREXLITE(nn.Module):
     """
     YOLOv3 model. Darknet 53 is the default backbone of this model.
     """
@@ -21,22 +21,21 @@ class YOLOPAFPNREX(nn.Module):
         in_features=("dark3", "dark4", "dark5"),
         fpn_channels = [128, 384, 768],
         depthwise=False,
-        use_se=True,
         act="silu",
     ):
         super().__init__()
-        self.backbone = ReXNetV1(depth, width, use_se=use_se)
+        self.backbone = ReXNetV1_lite(multiplier = width)
         self.in_features = in_features
         self.in_channels = self.backbone.out_channel
         Conv = DWConv if depthwise else BaseConv
         self.upsample = nn.Upsample(scale_factor=2, mode="nearest")
-        self.fpn_channels = fpn_channels
+
         self.lateral_conv0 = BaseConv(
-            self.in_channels[2], self.fpn_channels[1], 1, 1, act=act
+            self.in_channels[2], fpn_channels[1], 1, 1, act=act
         )
         self.C3_p4 = CSPLayer(
-            self.in_channels[1] + self.fpn_channels[1],
-            self.fpn_channels[1],
+            self.in_channels[1] + fpn_channels[1],
+            fpn_channels[1],
             round(3 * depth),
             False,
             depthwise=depthwise,
@@ -44,11 +43,11 @@ class YOLOPAFPNREX(nn.Module):
         )  # cat
 
         self.reduce_conv1 = BaseConv(
-            self.fpn_channels[1], self.fpn_channels[0], 1, 1, act=act
+            fpn_channels[1], fpn_channels[0], 1, 1, act=act
         )
         self.C3_p3 = CSPLayer(
-            self.in_channels[0] + self.fpn_channels[0],
-            self.fpn_channels[0],
+            self.in_channels[0] + fpn_channels[0],
+            fpn_channels[0],
             round(3 * depth),
             False,
             depthwise=depthwise,
@@ -57,11 +56,11 @@ class YOLOPAFPNREX(nn.Module):
 
         # bottom-up conv
         self.bu_conv2 = Conv(
-            self.fpn_channels[0], self.fpn_channels[0], 3, 2, act=act
+            fpn_channels[0], fpn_channels[0], 3, 2, act=act
         )
         self.C3_n3 = CSPLayer(
-            self.fpn_channels[0] + self.fpn_channels[0],
-            self.fpn_channels[1],
+            fpn_channels[0] + fpn_channels[0],
+            fpn_channels[1],
             round(3 * depth),
             False,
             depthwise=depthwise,
@@ -70,11 +69,11 @@ class YOLOPAFPNREX(nn.Module):
 
         # bottom-up conv
         self.bu_conv1 = Conv(
-            self.fpn_channels[1], self.fpn_channels[1], 3, 2, act=act
+            fpn_channels[1], fpn_channels[1], 3, 2, act=act
         )
         self.C3_n4 = CSPLayer(
-            self.fpn_channels[1] + self.fpn_channels[1],
-            self.fpn_channels[2],
+            fpn_channels[1] + fpn_channels[1],
+            fpn_channels[2],
             round(3 * depth),
             False,
             depthwise=depthwise,

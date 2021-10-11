@@ -55,7 +55,7 @@ class Exp(BaseExp):
         self.basic_lr_per_img = 0.01 / 64.0
         self.scheduler = "yoloxwarmcos"
         self.no_aug_epochs = 15
-        self.min_lr_ratio = 0.05
+        self.min_lr_ratio = 0.01
         self.ema = True
         self.freeze_backbone_epoch = 0
         self.weight_decay = 5e-4
@@ -70,7 +70,7 @@ class Exp(BaseExp):
         self.nmsthre = 0.65
 
     def get_model(self):
-        from yolox.models import YOLOX, YOLOPAFPNREX, YOLOXHead
+        from yolox.models import YOLOX, YOLOPAFPNREXLITE, YOLOXHead
 
         def init_yolo(M):
             for m in M.modules():
@@ -79,8 +79,8 @@ class Exp(BaseExp):
                     m.momentum = 0.03
 
         if getattr(self, "model", None) is None:
-            fpn_channels = [192, 384, 768]
-            backbone = YOLOPAFPNREX(self.depth, 1.5, fpn_channels=fpn_channels, use_se=False)
+            fpn_channels = [128, 256, 512]
+            backbone = YOLOPAFPNREXLITE(self.depth, 1.0,  fpn_channels=fpn_channels)
             head = YOLOXHead(self.num_classes, self.width, in_channels=fpn_channels)
             self.model = YOLOX(backbone, head)
 

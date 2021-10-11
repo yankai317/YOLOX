@@ -18,8 +18,8 @@ class Exp(BaseExp):
 
         # ---------------- model config ---------------- #
         self.num_classes = 80
-        self.depth = 1.00
-        self.width = 1.00
+        self.depth = 1.20
+        self.width = 1.0
 
         # ---------------- dataloader config ---------------- #
         # set worker to 4 for shorter dataloader init time
@@ -80,7 +80,7 @@ class Exp(BaseExp):
 
         if getattr(self, "model", None) is None:
             fpn_channels = [192, 384, 768]
-            backbone = YOLOPAFPNREX(self.depth, 1.5, fpn_channels=fpn_channels, use_se=False)
+            backbone = YOLOPAFPNREX(1, self.width, fpn_channels=fpn_channels)
             head = YOLOXHead(self.num_classes, self.width, in_channels=fpn_channels)
             self.model = YOLOX(backbone, head)
 

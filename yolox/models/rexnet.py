@@ -98,6 +98,7 @@ class ReXNetV1(nn.Module):
         ts = [1] * layers[0] + [6] * sum(layers[1:])
 
         self.depth = sum(layers[:]) * 3
+        self.out_channel = []
         stem_channel = 32 / width_mult if width_mult < 1.0 else 32
         inplanes = input_ch / width_mult if width_mult < 1.0 else input_ch
 
@@ -118,12 +119,14 @@ class ReXNetV1(nn.Module):
         ConvBNSiLU(features, 3, int(round(stem_channel * width_mult)), kernel=3, stride=2, pad=1)
 
         for block_idx, (in_c, c, t, s, se) in enumerate(zip(in_channels_group, channels_group, ts, strides, use_ses)):
+            if block_idx + 1 == 5 or block_idx + 1 == 11:
+                self.out_channel.append(c)
             features.append(LinearBottleneck(in_channels=in_c,
                                              channels=c,
                                              t=t,
                                              stride=s,
                                              use_se=se, se_ratio=se_ratio))
-
+        self.out_channel.append(c)
         # pen_channels = int(1280 * width_mult)
         # ConvBNSiLU(features, c, pen_channels)
 

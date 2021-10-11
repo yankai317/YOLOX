@@ -1,10 +1,10 @@
-cd /workspace/mnt/storage/yankai/test_cephfs/YOLOX
+cd /workspace/mnt/storage/yankai/source/YOLOX
 python setup.py develop  # or  python3 setup.py develop
 sleep 30
 python tools/train.py \
-        -expn yolox-m \
-        -n yolox-m \
-        -c /workspace/mnt/storage/yankai/test_cephfs/YOLOX/pretrain/yolox_m.pth.tar \
+        -expn ducha/yolox-m \
+        -n yolox-m-ducha \
+        -c /workspace/mnt/storage/yankai/source/YOLOX/YOLOX_outputs/coco/yolox-m/best_ckpt.pth \
         -d 8 \
         -b 256 \
         --fp16 \

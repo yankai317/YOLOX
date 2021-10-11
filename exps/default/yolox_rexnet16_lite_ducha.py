@@ -17,44 +17,41 @@ class Exp(BaseExp):
         super().__init__()
 
         # ---------------- model config ---------------- #
-        self.num_classes = 80
-        self.depth = 1.00
-        self.width = 1.00
+        self.num_classes = 1
+        self.depth = 1
+        self.width = 1
 
         # ---------------- dataloader config ---------------- #
         # set worker to 4 for shorter dataloader init time
         self.data_num_workers = 4
-        self.input_size = (640, 640)  # (height, width)
+        self.input_size = (416, 416)
+        # self.cache_size = (640, 640)
         # Actual multiscale ranges: [640-5*32, 640+5*32].
         # To disable multiscale training, set the
         # self.multiscale_range to 0.
         self.multiscale_range = 5
         # You can uncomment this line to specify a multiscale range
-        # self.random_size = (14, 26)
+        self.random_size = (10, 13)
         self.data_dir = None
-        self.train_ann = "instances_train2017.json"
-        self.val_ann = "instances_val2017.json"
 
         # --------------- transform config ----------------- #
         self.mosaic_prob = 1.0
-        self.mixup_prob = 1.0
-        self.hsv_prob = 1.0
-        self.flip_prob = 0.5
-        self.degrees = 10.0
+        self.mixup_prob = 0.5
+        self.degrees = 0.0
         self.translate = 0.1
-        self.mosaic_scale = (0.1, 2)
+        self.mosaic_scale = (0.5, 1.5)
         self.mixup_scale = (0.5, 1.5)
         self.shear = 2.0
         self.perspective = 0.0
-        self.enable_mixup = True
+        self.enable_mixup = False
 
         # --------------  training config --------------------- #
         self.warmup_epochs = 5
-        self.max_epoch = 300
+        self.max_epoch = 100
         self.warmup_lr = 0
-        self.basic_lr_per_img = 0.01 / 64.0
+        self.basic_lr_per_img = 0.005 / 64.0
         self.scheduler = "yoloxwarmcos"
-        self.no_aug_epochs = 15
+        self.no_aug_epochs = 10
         self.min_lr_ratio = 0.05
         self.ema = True
         self.freeze_backbone_epoch = 0
@@ -65,12 +62,12 @@ class Exp(BaseExp):
         self.exp_name = os.path.split(os.path.realpath(__file__))[1].split(".")[0]
 
         # -----------------  testing config ------------------ #
-        self.test_size = (640, 640)
-        self.test_conf = 0.01
-        self.nmsthre = 0.65
+        self.test_size = (256, 416)
+        self.test_conf = 0.3
+        self.nmsthre = 0.3
 
     def get_model(self):
-        from yolox.models import YOLOX, YOLOPAFPNREX, YOLOXHead
+        from yolox.models import YOLOX, YOLOPAFPNREXLITE, YOLOXHead
 
         def init_yolo(M):
             for m in M.modules():
@@ -80,7 +77,7 @@ class Exp(BaseExp):
 
         if getattr(self, "model", None) is None:
             fpn_channels = [192, 384, 768]
-            backbone = YOLOPAFPNREX(self.depth, 1.5, fpn_channels=fpn_channels, use_se=False)
+            backbone = YOLOPAFPNREXLITE(self.depth, 1.6, fpn_channels=fpn_channels)
             head = YOLOXHead(self.num_classes, self.width, in_channels=fpn_channels)
             self.model = YOLOX(backbone, head)
 
@@ -92,7 +89,7 @@ class Exp(BaseExp):
         self, batch_size, is_distributed, no_aug=False, cache_img=False
     ):
         from yolox.data import (
-            COCODataset,
+            DUCHADataset,
             TrainTransform,
             YoloBatchSampler,
             DataLoader,
@@ -108,14 +105,11 @@ class Exp(BaseExp):
         local_rank = get_local_rank()
 
         with wait_for_the_master(local_rank):
-            dataset = COCODataset(
+            dataset = DUCHADataset(
                 data_dir=self.data_dir,
-                json_file=self.train_ann,
+                name="train",
                 img_size=self.input_size,
-                preproc=TrainTransform(
-                    max_labels=50,
-                    flip_prob=self.flip_prob,
-                    hsv_prob=self.hsv_prob),
+                preproc=TrainTransform(max_labels=50),
                 cache=cache_img,
             )
 
@@ -123,10 +117,7 @@ class Exp(BaseExp):
             dataset,
             mosaic=not no_aug,
             img_size=self.input_size,
-            preproc=TrainTransform(
-                max_labels=120,
-                flip_prob=self.flip_prob,
-                hsv_prob=self.hsv_prob),
+            preproc=TrainTransform(max_labels=120),
             degrees=self.degrees,
             translate=self.translate,
             mosaic_scale=self.mosaic_scale,
@@ -185,14 +176,12 @@ class Exp(BaseExp):
         return input_size
 
     def preprocess(self, inputs, targets, tsize):
-        scale_y = tsize[0] / self.input_size[0]
-        scale_x = tsize[1] / self.input_size[1]
-        if scale_x != 1 or scale_y != 1:
+        scale = tsize[0] / self.input_size[0]
+        if scale != 1:
             inputs = nn.functional.interpolate(
                 inputs, size=tsize, mode="bilinear", align_corners=False
             )
-            targets[..., 1::2] = targets[..., 1::2] * scale_x
-            targets[..., 2::2] = targets[..., 2::2] * scale_y
+            targets[..., 1:] = targets[..., 1:] * scale
         return inputs, targets
 
     def get_optimizer(self, batch_size):
@@ -239,14 +228,13 @@ class Exp(BaseExp):
         return scheduler
 
     def get_eval_loader(self, batch_size, is_distributed, testdev=False, legacy=False):
-        from yolox.data import COCODataset, ValTransform
+        from yolox.data import DUCHADataset, ValTransform
 
-        valdataset = COCODataset(
+        valdataset = DUCHADataset(
             data_dir=self.data_dir,
-            json_file=self.val_ann if not testdev else "image_info_test-dev2017.json",
-            name="val2017" if not testdev else "test2017",
+            name="val",
             img_size=self.test_size,
-            preproc=ValTransform(legacy=legacy),
+            preproc=ValTransform(legacy=legacy)
         )
 
         if is_distributed:
@@ -268,16 +256,15 @@ class Exp(BaseExp):
         return val_loader
 
     def get_evaluator(self, batch_size, is_distributed, testdev=False, legacy=False):
-        from yolox.evaluators import COCOEvaluator
+        from yolox.evaluators import DUCHAEvaluator
 
         val_loader = self.get_eval_loader(batch_size, is_distributed, testdev, legacy)
-        evaluator = COCOEvaluator(
+        evaluator = DUCHAEvaluator(
             dataloader=val_loader,
             img_size=self.test_size,
             confthre=self.test_conf,
             nmsthre=self.nmsthre,
-            num_classes=self.num_classes,
-            testdev=testdev,
+            num_classes=self.num_classes
         )
         return evaluator
 

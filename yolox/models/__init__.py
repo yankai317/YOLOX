@@ -10,4 +10,5 @@ from .yolo_head_ddod import YOLOXHeadDdod
 from .yolo_pafpn import YOLOPAFPN
 from .yolo_pafpn_rex import YOLOPAFPNREX
 from .yolo_pafpn_pelee import YOLOPAFPNPELEE
+from .yolo_pafpn_rex_lite import YOLOPAFPNREXLITE
 from .yolox import YOLOX
